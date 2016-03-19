@@ -19,6 +19,7 @@ func main() {
 	}
 	if *ipv4 && *ipv6 {
 		fmt.Println("use -4 or -6, not both")
+		os.Exit(1)
 	}
 
 	hosts := flag.Args()
