@@ -43,7 +43,7 @@ google.com
 Perform resolutions for lookup responses (recursive)
 
 ~~~
-> $ res -r yahoo.com                                                                                [±master ●]
+> $ res -r yahoo.com
 yahoo.com
    98.139.180.149
       ir1.fp.vip.bf1.yahoo.com.
