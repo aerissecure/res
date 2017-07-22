@@ -149,7 +149,10 @@ func main() {
 		return
 	}
 
-	for _, addr := range addrs {
+	for i, addr := range addrs {
+		if i > 0 {
+			fmt.Println()
+		}
 		fmt.Println(addr.Addr)
 		for _, addr := range addr.Lookups {
 			fmt.Printf("\t%s\n", addr.Addr)
