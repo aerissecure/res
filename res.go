@@ -8,7 +8,7 @@ eventually:
 - perform arin queries
 - perform whois queries
 - let recursive take a number for the number of times to recurse?
-
+- don't think ipv4/6 is being respected
 */
 
 package main
@@ -89,20 +89,25 @@ func (i *Addr) resolve(ipv4, ipv6 bool) {
 
 // automatically detect Addr as hostname or ip
 func main() {
-	var ipv4, ipv6, recursive, flat, pretty bool
-	flag.BoolVar(&ipv4, "4", true, "include ipv4 responses")
-	flag.BoolVar(&ipv6, "6", false, "include ipv6 responses")
+	var ipv4, ipv6, recursive, oj, ojp bool
+	flag.BoolVar(&ipv4, "4", false, "ipv4 responses only")
+	flag.BoolVar(&ipv6, "6", false, "ipv6 responses only")
 	flag.BoolVar(&recursive, "r", false, "recursive (resolve lookups)")
-	flag.BoolVar(&flat, "f", false, "flatten output") // json only?
-	flag.BoolVar(&pretty, "p", false, "pretty print")
-	_ = flat // not sure what flat really means right now...
-	_ = pretty
+	// flag.BoolVar(&flat, "f", false, "flatten output") // json only?
+	flag.BoolVar(&oj, "j", false, "output json")
+	flag.BoolVar(&ojp, "jp", false, "output json (pretty)")
+	// _ = flat // not sure what flat really means right now...
 
 	flag.Parse()
 
 	if len(flag.Args()) == 0 {
 		fmt.Fprintln(os.Stderr, "error: provide at least one ip/hostname as an argument")
 		os.Exit(1)
+	}
+
+	if !ipv4 && !ipv6 {
+		ipv4 = true
+		ipv6 = true
 	}
 
 	resolver := &net.Resolver{PreferGo: true}
@@ -133,27 +138,26 @@ func main() {
 	}
 	wg.Wait()
 
-	// for _, addr := range addrs {
-	// 	fmt.Println(addr.Addr)
-	// 	for _, addr := range addr.Lookups {
-	// 		fmt.Printf("\t%s\n", addr.Addr)
-	// 		if recursive {
-	// 			for _, addr := range addr.Lookups {
-	// 				fmt.Printf("\t\t%s\n", addr.Addr)
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// if flat {
-	// 	addrs = flatten(addrs)
-	// }
-
-	var b []byte
-	if pretty {
-		b, _ = json.MarshalIndent(addrs, "", "  ")
-	} else {
-		b, _ = json.Marshal(addrs)
+	if oj {
+		b, _ := json.Marshal(addrs)
+		fmt.Printf("%s\n", string(b))
+		return
 	}
-	fmt.Printf("%s\n", string(b))
+	if ojp {
+		b, _ := json.MarshalIndent(addrs, "", "  ")
+		fmt.Printf("%s\n", string(b))
+		return
+	}
+
+	for _, addr := range addrs {
+		fmt.Println(addr.Addr)
+		for _, addr := range addr.Lookups {
+			fmt.Printf("\t%s\n", addr.Addr)
+			if recursive {
+				for _, addr := range addr.Lookups {
+					fmt.Printf("\t\t%s\n", addr.Addr)
+				}
+			}
+		}
+	}
 }
