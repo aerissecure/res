@@ -68,6 +68,11 @@ func (i *Addr) resolve(ipv4, ipv6 bool) {
 		}
 	}
 	if i.typeHost() {
+		cname, err := net.LookupCNAME(i.Addr)
+		if err == nil {
+			i.Lookups = append(i.Lookups, &Addr{Addr: cname, resolver: i.resolver})
+		}
+		// net.LookupCNAME
 		ips, err := net.LookupHost(i.Addr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %s\n", err)
