@@ -23,6 +23,10 @@ import (
 	"sync"
 )
 
+// TODO:
+// - add a Type field that can be used for displaying the type (hostname, cname, ip)
+// - make the functions for validating type functions instead of methods.
+
 type Addr struct {
 	Addr    string  `json:"addr"`
 	Lookups []*Addr `json:"lookups"`
@@ -41,6 +45,21 @@ func (i *Addr) typeHost() bool {
 	return !i.typeIP()
 }
 
+func (i *Addr) typeCNAME() bool {
+	if i.typeIP() {
+		return false
+	}
+	cname, err := net.LookupCNAME(i.Addr)
+	if err != nil {
+		return false
+	}
+	if cname == i.Addr {
+		// https://github.com/golang/go/issues/8516
+		return false
+	}
+	return true
+}
+
 // may need to remove duplicates
 // func flatten(addrs []*Addr) []*Addr {
 // 	var flat []*Addr
@@ -56,7 +75,9 @@ func (i *Addr) typeHost() bool {
 // }
 
 func (i *Addr) resolve(ipv4, ipv6 bool) {
-	if i.typeIP() {
+	// fmt.Println("resolving", i.Addr)
+	switch {
+	case i.typeIP():
 		names, err := i.resolver.LookupAddr(context.Background(), i.Addr)
 		// typecheck error ???
 		if err != nil {
@@ -66,13 +87,15 @@ func (i *Addr) resolve(ipv4, ipv6 bool) {
 		for _, n := range names {
 			i.Lookups = append(i.Lookups, &Addr{Addr: n, resolver: i.resolver})
 		}
-	}
-	if i.typeHost() {
+	case i.typeCNAME():
 		cname, err := net.LookupCNAME(i.Addr)
-		if err == nil {
-			i.Lookups = append(i.Lookups, &Addr{Addr: cname, resolver: i.resolver})
+		if err != nil {
+			// shouldn't happen since already checked error in typeCNAME()
+			fmt.Fprintf(os.Stderr, "error: %s\n", err)
+			return
 		}
-		// net.LookupCNAME
+		i.Lookups = append(i.Lookups, &Addr{Addr: cname, resolver: i.resolver})
+	case i.typeHost():
 		ips, err := net.LookupHost(i.Addr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %s\n", err)
@@ -91,6 +114,10 @@ func (i *Addr) resolve(ipv4, ipv6 bool) {
 		}
 	}
 }
+
+// TODO: build function to recurse to the right depth now that cnames are throwing wrenches
+// func (i *Addr) recurse(root *Addr, ipv4, ipv6 bool) {
+// }
 
 // automatically detect Addr as hostname or ip
 func main() {
@@ -134,6 +161,7 @@ func main() {
 					wgr.Add(1)
 					go func(addr *Addr) {
 						defer wgr.Done()
+
 						addr.resolve(ipv4, ipv6)
 					}(addr)
 				}
